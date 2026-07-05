@@ -917,7 +917,7 @@ if (!reduceMotion && 'IntersectionObserver' in window) {
   if (tl) tl.classList.add('drawn');
 }
 
-// Contact form -> EmailJS
+// Contact form -> EmailJS (direct REST API, no SDK needed)
 document.getElementById('contactForm').addEventListener('submit', function(e){
   e.preventDefault();
   const f = this;
@@ -927,34 +927,59 @@ document.getElementById('contactForm').addEventListener('submit', function(e){
   const note = document.getElementById('formNote');
   btn.disabled = true;
   btn.style.opacity = '.7';
+  note.style.color = '';
   note.textContent = 'Sending your message…';
 
-  const params = {
-    name: f.name.value,
-    from_name: f.name.value,
-    phone: f.phone.value,
-    email: f.email.value,
-    from_email: f.email.value,
-    reply_to: f.email.value,
-    subject: f.subject.value,
-    title: f.subject.value,
-    message: f.message.value
+  const payload = {
+    service_id: 'service_pvtaepe',
+    template_id: 'template_6z36cwg',
+    user_id: 'HlIF9FPP0pCffTsCm',
+    template_params: {
+      name: f.name.value,
+      from_name: f.name.value,
+      phone: f.phone.value,
+      email: f.email.value,
+      from_email: f.email.value,
+      reply_to: f.email.value,
+      subject: f.subject.value,
+      title: f.subject.value,
+      message: f.message.value
+    }
   };
 
-  emailjs.send('service_pvtaepe', 'template_6z36cwg', params)
-    .then(function(){
+  const done = ok => { btn.disabled = false; btn.style.opacity = ''; };
+  const fail = msg => {
+    note.textContent = 'Sending failed' + (msg ? ' — ' + msg : '') +
+      '. Please try again, or email dasguptaavi25@gmail.com directly.';
+    note.style.color = '#B4232A';
+  };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+
+  fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: controller.signal
+  })
+  .then(async res => {
+    clearTimeout(timer);
+    if (res.ok) {
       note.textContent = 'Message sent successfully. Thank you — you will receive a response soon.';
       note.style.color = 'var(--navy)';
       f.reset();
-    })
-    .catch(function(err){
-      console.error('EmailJS error:', err);
-      note.textContent = 'Something went wrong while sending. Please try again, or email dasguptaavi25@gmail.com directly.';
-    })
-    .finally(function(){
-      btn.disabled = false;
-      btn.style.opacity = '';
-    });
+    } else {
+      const text = await res.text().catch(() => '');
+      fail(text || ('error ' + res.status));
+    }
+  })
+  .catch(err => {
+    clearTimeout(timer);
+    fail(err.name === 'AbortError' ? 'the request timed out, please check your internet connection'
+                                   : 'network error, please check your internet connection');
+  })
+  .finally(done);
 });
 </script>
 </body>
